@@ -16,7 +16,7 @@ The rendered supplementary materials -- including supplementary plots and sectio
 
 The greater project from which this study stems is hosted at: https://github.com/bgpurzycki/Evolution-of-Religion-and-Morality
 
-System details for rendering `notebook.qmd`:
+Additional system details for rendering `notebook.qmd`:
  - `version  R version 4.1.2 (2021-11-01)`
  - `os       Windows 10 x64 (build 19043)`
  - `system   x86_64, mingw32`
