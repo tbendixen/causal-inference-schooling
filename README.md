@@ -1,4 +1,4 @@
-# causal-inference-schooling
+# Causal Inference in Schooling
 
 Repository for a Culture in Schooling study on causal inference:
 
