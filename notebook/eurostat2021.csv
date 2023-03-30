@@ -1,0 +1,31 @@
+TIME;GEO;SEX;AGE;ISCED11;UNIT;Value;Flag and Footnotes
+2021;Denmark;Males;From 15 to 24 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;217.2;b
+2021;Denmark;Males;From 25 to 34 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;69.3;b
+2021;Denmark;Males;From 35 to 44 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;60;b
+2021;Denmark;Males;From 45 to 54 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;68.8;b
+2021;Denmark;Males;From 55 to 74 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;174.5;b
+2021;Denmark;Males;From 15 to 24 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;125.2;b
+2021;Denmark;Males;From 25 to 34 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;156.2;b
+2021;Denmark;Males;From 35 to 44 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;140.6;b
+2021;Denmark;Males;From 45 to 54 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;184.1;b
+2021;Denmark;Males;From 55 to 74 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;332.6;b
+2021;Denmark;Males;From 15 to 24 years;Tertiary education (levels 5-8);Thousand;14.7;b
+2021;Denmark;Males;From 25 to 34 years;Tertiary education (levels 5-8);Thousand;158;b
+2021;Denmark;Males;From 35 to 44 years;Tertiary education (levels 5-8);Thousand;139.7;b
+2021;Denmark;Males;From 45 to 54 years;Tertiary education (levels 5-8);Thousand;141.1;b
+2021;Denmark;Males;From 55 to 74 years;Tertiary education (levels 5-8);Thousand;177.1;b
+2021;Denmark;Females;From 15 to 24 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;188.3;b
+2021;Denmark;Females;From 25 to 34 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;47.4;b
+2021;Denmark;Females;From 35 to 44 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;46.9;b
+2021;Denmark;Females;From 45 to 54 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;52.2;b
+2021;Denmark;Females;From 55 to 74 years;Less than primary, primary and lower secondary education (levels 0-2);Thousand;192.5;b
+2021;Denmark;Females;From 15 to 24 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;138.3;b
+2021;Denmark;Females;From 25 to 34 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;108.5;b
+2021;Denmark;Females;From 35 to 44 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;104.4;b
+2021;Denmark;Females;From 45 to 54 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;161.6;b
+2021;Denmark;Females;From 55 to 74 years;Upper secondary and post-secondary non-tertiary education (levels 3 and 4);Thousand;284;b
+2021;Denmark;Females;From 15 to 24 years;Tertiary education (levels 5-8);Thousand;17.2;b
+2021;Denmark;Females;From 25 to 34 years;Tertiary education (levels 5-8);Thousand;218.1;b
+2021;Denmark;Females;From 35 to 44 years;Tertiary education (levels 5-8);Thousand;181;b
+2021;Denmark;Females;From 45 to 54 years;Tertiary education (levels 5-8);Thousand;180.6;b
+2021;Denmark;Females;From 55 to 74 years;Tertiary education (levels 5-8);Thousand;226.9;b
