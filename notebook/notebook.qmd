@@ -1,0 +1,807 @@
+---
+title: "Material insecurity and religiosity: A causal analysis"
+author: 
+- "Benjamin Grant Purzycki"
+- "Theiss Bendixen"
+format:
+  html:
+    number-sections: TRUE
+    toc: TRUE
+  pdf:
+    number-sections: TRUE
+    toc: TRUE
+    keep-tex: TRUE
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+         \DefineVerbatimEnvironment{OutputCode}{Verbatim}{breaklines,commandchars=\\\{\}}
+number-depth: 2
+editor: source
+bibliography: grateful-refs.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  cache = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  error = FALSE,
+  cache.comments = FALSE
+)
+
+```
+
+\newpage
+
+# Introduction
+
+This notebook fits and reports on the main and supplementary models for our analysis on religious commitment as predicted by food insecurity and educational attainment. 
+
+We first discuss and demonstrate the impact on inference between accounting versus not accounting for group-level structures -- sometimes referred to as Simpson's "paradox".
+
+We then fit and compare two approaches to modeling years of formal education and age -- namely, via Gaussian processes and monotonic effects. Then, we fit our main analysis, as reported in the submitted manuscript and compare the marginal predictions to a model that poststratify predictions to a different, non-sampled population.
+
+Finally, we list and cite all `R` packages, their dependencies, and version number used for this project.
+
+## Set-up and data preparation
+
+We first load relevant packages and specify the path to `cmdstan`, the engine for fitting Bayesian models. We then read in the data and subset to relevant variables and complete cases. We then set the variables to their respective types. We also write generic fitting functions.
+
+```{r envir, cache=FALSE}
+# Load packages
+library(tidybayes) # for post-processing and plotting
+library(brms) # for Bayesian modeling
+library(dplyr) # for data preparation
+library(ggplot2) # for plotting
+library(grateful) # for citing packages
+library(patchwork) # for panel plots
+
+# Increase memory allocation
+memory.limit(size=56000)
+
+# Set path to whereever cmdstan in installed
+cmdstanr::set_cmdstan_path("C:\\cmdstan\\cmdstan-2.29.0")
+
+# Read data and retain only complete cases
+d <- read.delim("ALLSITES_V3.7_tabdel.txt")
+
+labs <- c("SITE", "CID", "AGE", "SEX", "CHILDREN", 
+          "FORMALED", "MAT1", 
+          "BGTHINK", "BGPERFHO")
+d <- d[labs]
+d <- d[complete.cases(d), ]
+
+# Prepare for ordered categorical modeling
+d$BGTHINK <- factor(d$BGTHINK, ordered = T)
+d$BGPERFHO <- factor(d$BGPERFHO, ordered = T)
+
+# binary variables as factors
+d$SEX <- factor(d$SEX)
+d$MAT1 <- factor(d$MAT1)
+
+# Prepare monotonic modeling
+d$FORMALED.mo <- factor(d$FORMALED, ordered = T)
+d$AGE.mo <- factor(d$AGE, ordered = T)
+d$CHILDREN.mo <- factor(d$CHILDREN, ordered = T)
+
+# Generic fitting functions
+fit_brms <- function(formula, priors, data) {
+  brm(formula = formula,
+      data = data, 
+      iter = 1000, cores = 4,
+      prior = priors,
+      family = cumulative("logit"),
+      backend = "cmdstanr",
+      seed = 1992)
+}
+
+# For prior predictive check
+fit_brms_ppc <- function(formula, priors, data) {
+  brm(formula = formula,
+      data = data, 
+      iter = 1000, cores = 4,
+      sample_prior = "only",
+      prior = priors,
+      family = cumulative("logit"),
+      backend = "cmdstanr",
+      seed = 1992)
+}
+
+# For simple prior vs. posterior check
+prior_vs_post <- function(prior_model, post_model) {
+  ndraws <- 100
+  set.seed(1992)
+
+pvp <- (pp_check(prior_model,
+            resp = "BGTHINK", 
+            ndraws = ndraws,
+            type = "bars",
+            size = 0.1,
+            freq = FALSE)) + 
+  theme(legend.position = "none") +
+  labs(title = "Prior predictive check",
+       subtitle = "How often do you think about [deity]?") +
+  ylim(c(0,1)) + 
+      (pp_check(prior_model,
+              resp = "BGPERFHO", 
+              ndraws = ndraws,
+              type = "bars",
+              size = 0.1,
+              freq = FALSE)) + 
+     theme(legend.position = "none") +
+     labs(title = "Prior predictive check",
+          subtitle = "How often do you perform activities or practices\n to talk to or appease [deity]?") +
+     ylab(NULL) +
+     ylim(c(0,1)) +
+          (pp_check(post_model, 
+                  resp = "BGTHINK", 
+                  ndraws = ndraws,
+                  type = "bars",
+                  size = 0.1,
+                  freq = FALSE)) +
+        theme(legend.position = "none") +
+         labs(title = "Posterior predictive check",
+         subtitle = "How often do you think about [deity]?") +
+        ylim(c(0,1)) +
+            (pp_check(post_model, 
+                  resp = "BGPERFHO", 
+                  ndraws = ndraws,
+                  type = "bars",
+                  size = 0.1,
+                  freq = FALSE)) +
+          theme(legend.position = "none") +
+          labs(title = "Posterior predictive check",
+          subtitle = "How often do you perform activities or practices\n to talk to or appease [deity]?") +
+          ylab(NULL) +
+          ylim(c(0,1)) +
+              patchwork::plot_layout(ncol = 2, nrow = 2)
+
+   set.seed(NULL)
+   
+   return(pvp)
+}
+
+```
+
+# Simpsons "paradox"
+
+As reviewed in the main manuscript, some previous research analyzes group-level association between various sociodemographic factors and religious commitment and finds, for instance, that years of education negatively predicts religiosity. Here, using simple bivariate regressions, we show how analyzing group-mean aggregated can potentially lead us astray. This is sometimes referred to as Simpson's paradox, although technically there's no paradox. It's simply a result of nested data structures. 
+
+Specifically, in the following graphs, we replicate previous findings that, on a group-mean aggregate level, there's a negative relationship between education and religiosity (left panel), but that this relationship disappears when taking into account the grouping structure in the data (namely, the field sites; right panel). One way to think of this phenomenon is to consider the field sites as proxies for unobserved, site-specific confounding factors that are (at least partly) mitigated, when allowing each site to have its own intercept and slope.
+
+```{r simps-think, dependson="envir", fig.width=8, fig.height=4}
+d_agg <- with(d, data.frame(
+  SITE = unique(d$SITE),
+  FORMALED = aggregate(as.numeric(FORMALED), list(SITE), FUN = mean)$x,
+  BGTHINK = aggregate(as.numeric(BGTHINK), list(SITE), FUN = mean)$x,
+  BGPERFHO = aggregate(as.numeric(BGPERFHO), list(SITE), FUN = mean)$x)
+  )
+
+(d_agg |> ggplot(aes(x = FORMALED, y = BGTHINK)) +
+  geom_smooth(method = "lm", se = T) +
+  geom_jitter(size = 2) + 
+  theme(panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill="white")) +
+  scale_y_continuous(breaks=c(1,2,3,4,5)) +
+  xlab("Years of formal education (group-mean)") +
+  ylab("Religious ideation (group-mean)") +
+  labs(title = "Simpson's ''paradox''",
+       subtitle = "Formal education and religious ideation")) +
+(d |> ggplot(aes(x = as.numeric(FORMALED), y = as.numeric(BGTHINK), color = SITE)) +
+  geom_jitter(alpha=0.05) + 
+  facet_wrap(~ SITE) +
+  geom_smooth(method = "lm", se = T) +
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill="white")) +
+  scale_y_continuous(breaks=c(1,2,3,4,5)) +
+  xlab("Years of formal education") +
+  ylab("Religious ideation")) +
+  plot_layout(ncol=2)
+
+```
+
+```{r, simps-perfho, dependson=c("envir","simps-think"), fig.width=8, fig.height=4}
+(d_agg |> ggplot(aes(x = FORMALED, y = BGPERFHO))) +
+  geom_smooth(method = "lm", se = T) +
+  geom_jitter(size = 2) + 
+  theme(panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill="white")) +
+  scale_y_continuous(breaks=c(1,2,3,4,5)) +
+  xlab("Years of formal education (group mean)") +
+  ylab("Religious behavior (group mean)") +
+  labs(title = "Simpson's ''paradox''",
+       subtitle = "Formal education and religious behavior") +
+(d |> ggplot(aes(x = as.numeric(FORMALED), y = as.numeric(BGPERFHO), color = SITE))) +
+  geom_jitter(alpha=0.05) + 
+  facet_wrap(~ SITE) +
+  geom_smooth(method = "lm", se = T) +
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill="white")) +
+  scale_y_continuous(breaks=c(1,2,3,4,5)) +
+  xlab("Years of formal education") +
+  ylab("Religious behavior") +  
+  plot_layout(ncol=2)
+
+```
+
+# Monotonic vs. Gaussian process
+
+In this section, we fit four models. One set of models approach years of formal education and age as monotonic, first without (`m1mo`) and then with (`m2mo`) by-site clustering.
+
+The second set of models handles years of formal education and age with Gaussian processes, again without (`m1gp`) and with (`m2gp`) by-site clustering. We then compare the models (`m1mo` vs. `m1gp` vs. `m2mo` vs. `m2gp`), using approximate leave-one-out cross-validation [@loo2017b; @loo2017c; @loo2020a].
+
+For the monotonic models, we specify mildly regularizing priors on all parameters. For the Gaussian process models, we specify mildly regularizing priors on the cut-points (what `brms` refers to as "Intercepts") but stick with the default priors for the Gaussian process parameters themselves. Priors potentially play an important role in Gaussian process models and `brms` defaults to priors that are mildly catered to the data at hand (without encoding any particular relationship *a priori*).
+
+In any case, our dataset is fairly large and to ensure that the posterior is in fact informed by the data, we plot convenient prior vs. posterior predictive checks for each model in turn. For computational ease, the prior vs. posterior checks are based on 100 draws from the posterior, so the point estimates (posterior medians) and 90% intervals are only indicative of the full posterior distribution.
+
+## Monotonic global model
+
+```{r m1mo, dependson="envir", results="hide"}
+m1mopriors <- set_prior("normal(0,0.5)", 
+                        class = "b", 
+                        resp = "BGTHINK") +
+              set_prior("normal(0,0.5)", 
+                        class = "b", 
+                        resp = "BGPERFHO") +
+              set_prior("normal(0,10)", 
+                        class = "Intercept", 
+                        resp = "BGTHINK") +
+              set_prior("normal(0,10)", 
+                        class = "Intercept", 
+                        resp = "BGPERFHO") +
+              set_prior("dirichlet(2)", 
+                        class = "simo", 
+                        resp = "BGTHINK", 
+                        coef = "moAGE.mo1") +
+              set_prior("dirichlet(2)", 
+                        class = "simo", 
+                        resp = "BGTHINK", 
+                        coef = "moFORMALED.mo1") +
+              set_prior("dirichlet(2)", 
+                        class = "simo", 
+                        resp = "BGPERFHO", 
+                        coef = "moAGE.mo1") +
+              set_prior("dirichlet(2)", 
+                        class = "simo", 
+                        resp = "BGPERFHO", 
+                        coef = "moFORMALED.mo1")
+
+m1moformula <- mvbind(BGTHINK, BGPERFHO) ~ mo(FORMALED.mo) + mo(AGE.mo)
+
+m1moppc <- fit_brms_ppc(formula = m1moformula, priors = m1mopriors, data = d)
+
+m1mo <- fit_brms(formula = m1moformula, priors = m1mopriors, data = d)
+
+```
+
+```{r m1moppc, dependson=c("envir","m1mo"), fig.width=8, fig.height=4}
+prior_vs_post(m1moppc, m1mo)
+
+```
+
+## Gaussian process global model
+
+```{r m1gp, dependson="envir", results="hide"}
+m1gppriors <- set_prior("normal(0,2.5)", 
+                        class = "Intercept", 
+                        resp = "BGTHINK") +
+              set_prior("normal(0,2.5)", 
+                        class = "Intercept", 
+                        resp = "BGPERFHO")
+
+m1gpformula <- mvbind(BGTHINK, BGPERFHO) ~ gp(FORMALED) + gp(AGE)
+
+m1gpppc <- fit_brms_ppc(formula = m1gpformula, priors = m1gppriors, data = d)
+
+m1gp <- fit_brms(formula = m1gpformula, priors = m1gppriors, data = d)
+```
+
+```{r m1gpppc, dependson=c("envir","m1gp"), fig.width=8, fig.height=4}
+prior_vs_post(m1gpppc, m1gp)
+
+```
+
+## Monotonic multilevel model
+
+```{r m2mo, dependson=c("envir", "m1mo"), results="hide"}
+m2mopriors <- m1mopriors + 
+              set_prior("lkj_corr_cholesky(4)", 
+                        class = "L")
+
+m2moformula <- mvbind(BGTHINK, BGPERFHO) ~ mo(FORMALED.mo) + mo(AGE.mo) + (mo(FORMALED.mo) + mo(AGE.mo) | SITE)
+
+m2moppc <- fit_brms_ppc(formula = m2moformula, priors = m2mopriors, data = d)
+
+m2mo <- fit_brms(formula = m2moformula, priors = m2mopriors, data = d)
+```
+
+```{r m2moppc, dependson=c("envir","m2mo"), fig.width=8, fig.height=4}
+prior_vs_post(m2moppc, m2mo)
+
+```
+
+## Gaussian process multilevel model
+
+```{r m2gp, dependson=c("envir","m1gp"), results="hide"}
+m2gpformula <- mvbind(BGTHINK, BGPERFHO) ~ gp(FORMALED, by = SITE) + gp(AGE, by = SITE)
+
+m2gpppc <- fit_brms_ppc(formula = m2gpformula, priors = m1gppriors, data = d)
+
+m2gp <- fit_brms(formula = m2gpformula, priors = m1gppriors, data = d)
+```
+
+```{r m2gpppc, dependson=c("envir","m2gp"), fig.width=8, fig.height=4}
+prior_vs_post(m2gpppc, m2gp)
+
+```
+
+## Model comparison
+
+Comparing `m1mo` vs. `m1gp` vs. `m2mo` vs. `m2gp:`
+
+```{r loo, dependson=c("envir", "m1mo", "m1gp", "m2mo", "m2gp")}
+loo_result <- loo::loo_compare(loo(m1mo), loo(m2mo), loo(m1gp), loo(m2gp))
+
+loo_result
+
+```
+
+Note that for the multilevel Gaussian process, we had some mild convergence issues, which are likely to also impact the model comparison results. We suspect that some of these issues could be solved using a combination of longer chains, stronger priors, and/or informative scaling and centering of the independent variables.
+
+However, given that the monotonic effects models perform just as well or even better than the Gaussian process models and are also arguably more parsimonious in that we do not have to assume any particular density kernel *a priori* (as with the Gaussian process model), we proceed with the monotonic effects parameterization.
+
+## Final model
+
+```{r m3mo, dependson="envir", results="hide"}
+m3mopriors <- set_prior("normal(0,0.5)", class = "b", resp = "BGTHINK") +
+              set_prior("normal(0,0.5)", class = "b", resp = "BGPERFHO") +
+              set_prior("normal(0,10)", class = "Intercept", resp = "BGTHINK") +
+              set_prior("normal(0,10)", class = "Intercept", resp = "BGPERFHO") +
+              set_prior("exponential(1)", class = "sd", resp = "BGTHINK") +
+              set_prior("exponential(1)", class = "sd", resp = "BGPERFHO") +
+              set_prior("dirichlet(2)", class="simo", resp = "BGTHINK", coef = "moAGE.mo1") +
+              set_prior("dirichlet(2)", class="simo", resp = "BGTHINK", coef = "moCHILDREN.mo1") +
+              set_prior("dirichlet(2)", class="simo", resp = "BGTHINK", coef = "moFORMALED.mo1") +
+              set_prior("dirichlet(2)", class="simo", resp = "BGPERFHO", coef = "moAGE.mo1") +
+              set_prior("dirichlet(2)", class="simo", resp = "BGPERFHO", coef = "moCHILDREN.mo1") +
+              set_prior("dirichlet(2)", class="simo", resp = "BGPERFHO", coef = "moFORMALED.mo1") +
+              set_prior("lkj_corr_cholesky(4)", class = "L")
+
+m3moformula <- mvbind(BGTHINK, BGPERFHO) ~ mo(FORMALED.mo) + mo(AGE.mo) + SEX + MAT1 + mo(CHILDREN.mo) + 
+                    (mo(FORMALED.mo) + mo(AGE.mo) + SEX + MAT1 + mo(CHILDREN.mo) | SITE)
+
+m3moppc <- fit_brms_ppc(formula = m3moformula, priors = m3mopriors, data = d)
+
+m3mo <- fit_brms(formula = m3moformula, priors = m3mopriors, data = d)
+```
+
+```{r m3moppc, dependson=c("envir", "m3mo"), fig.width=8, fig.height=4}
+prior_vs_post(m3moppc, m3mo)
+
+```
+
+We run model comparison to check if the final model indeed performs predictively better than the more simple models. Results indicate that this indeed is the case, although the difference between `m3mo` and `m2mo` is relatively small compared to its standard error.
+
+```{r loo-final, dependson=c("envir", "m1mo", "m1gp", "m2mo", "m2gp")}
+loo_result_fin <- loo::loo_compare(loo(m1mo), loo(m2mo), loo(m1gp), loo(m2gp), loo(m3mo))
+
+loo_result_fin
+
+```
+
+# Results
+
+Here, we produce the result plots reported in the main manuscript.
+
+## Food security
+
+```{r g-comp-bin, dependson="m3mo"}
+g_comp_bin <- function(model, resp) {
+  
+  set.seed(1992)
+  
+  # prediction grid
+  predgrid <- rbind(transform(d, MAT1 = 0),
+                    transform(d, MAT1 = 1))
+  
+  # get fitted values
+  epred <- add_epred_draws(object = model, 
+                            ndraws = 2000, 
+                            newdata = predgrid, 
+                            re_formula = NULL,
+                            resp = resp) |>
+    mutate(category = factor(as.numeric(.category)))
+  
+  set.seed(NULL)
+  
+  # compute posterior means for ID and response option
+  fitted <- epred |>
+    group_by(CID, MAT1, SITE, category) |>
+    summarize(post_mean = mean(.epred)) |>
+    
+    # prepare line plot
+    group_by(CID, category) |>
+    mutate(indices = cur_group_id()) |>
+    ungroup()
+
+  # prepare facet labels
+  site_labels <- c("Co.Tanna" = "Coastal Tanna",
+                   "In.Tanna" = "Inland Tanna",
+                   "Sursurunga" = "Sursurunga",
+                   "Turkana" = "Turkana",
+                   "Samburu" = "Samburu",
+                   "Huatasani" = "Huatasani",
+                   "Mysore" = "Mysore",
+                   "Cachoeira" = "Cachoeira",
+                   "Kananga" = "Kananga",
+                   "Mauritius" = "Mauritius",
+                   "Lovu" = "Lovu Fiji",
+                   "Marajo" = "Marajo", 
+                   "Tyva Republic" = "Tyva Republic",
+                   "Yasawa" = "Yasawa Fiji")
+  
+  # plot
+  plot <- fitted |>
+      ggplot(aes(x = MAT1, 
+                 y = post_mean, 
+                 group = indices,
+                 color = category))  + 
+      geom_line(alpha = 0.05) +
+      viridis::scale_color_viridis(discrete = TRUE, 
+                                   option = "D",
+                                   name = NULL,
+                                   direction = -1,
+                                   labels=c("Very rarely/never", 
+                                            "A few times per year", 
+                                            "A few times per month", 
+                                            "A few times per week", 
+                                            "Every day")) +
+    guides(colour = guide_legend(override.aes = list(alpha = 1))) + # controls the legend alpha separately from the geom_line() alpha
+    facet_wrap(~SITE, nrow = 3, ncol = 5, labeller = as_labeller(site_labels)) + 
+    scale_x_continuous(name="Worried about food?", limits = c(-0.5,1.5), breaks = c(0,1), labels=c("No","Yes") ) +
+    scale_y_continuous(name="Probability of each response option", breaks=c(0, .5, 1)) + 
+    theme(legend.position = c(0.92, 0.1),
+          legend.text=element_text(size=7),
+          legend.key=element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_rect(fill="white"),
+          legend.background = element_rect(fill="transparent"))
+  
+  set.seed(NULL)
+  
+  return(plot)
+}
+
+```
+
+```{r mat-think, dependson=c("m3mo","g-comp-bin"), fig.width=8, fig.height=4}
+g_comp_bin(m3mo, "BGTHINK") + ggtitle("How often do you think about [deity]?")
+
+```
+
+```{r mat-perfho, dependson=c("m3mo","g-comp-bin"), fig.width=8, fig.height=4}
+g_comp_bin(m3mo, "BGPERFHO") + ggtitle("How often do you perform activities or practices to talk to or appease [deity]?")
+
+```
+
+## Years of formal education
+
+```{r g-comp-trend, dependson="m3mo"}
+g_comp_trend <- function(model, resp) {
+  
+  set.seed(1992)
+  
+  # prediction grid
+  predgrid <- rbind(transform(d, FORMALED.mo = 0),
+                    transform(d, FORMALED.mo = 5),
+                    transform(d, FORMALED.mo = 10),
+                    transform(d, FORMALED.mo = 15),
+                    transform(d, FORMALED.mo = 20),
+                    transform(d, FORMALED.mo = 25),
+                    transform(d, FORMALED.mo = 30))
+  
+  # get fitted values
+  epred <- add_epred_draws(object = model, 
+                            ndraws = 2000, 
+                            newdata = predgrid, 
+                            re_formula = NULL,
+                            resp = resp) |>
+    mutate(category = factor(as.numeric(.category)))
+  
+  set.seed(NULL)
+  
+  # compute posterior means for ID and response option
+  fitted <- epred |>
+    group_by(CID, FORMALED.mo, SITE, category) |>
+    summarize(post_mean = mean(.epred)) |>
+    
+    # prepare line plot
+    group_by(CID, category) |>
+    mutate(indices = cur_group_id()) |>
+    ungroup()
+  
+  # prepare facet labels
+  site_labels <- c("Co.Tanna" = "Coastal Tanna",
+                   "In.Tanna" = "Inland Tanna",
+                   "Sursurunga" = "Sursurunga",
+                   "Turkana" = "Turkana",
+                   "Samburu" = "Samburu",
+                   "Huatasani" = "Huatasani",
+                   "Mysore" = "Mysore",
+                   "Cachoeira" = "Cachoeira",
+                   "Kananga" = "Kananga",
+                   "Mauritius" = "Mauritius",
+                   "Lovu" = "Lovu Fiji",
+                   "Marajo" = "Marajo", 
+                   "Tyva Republic" = "Tyva Republic",
+                   "Yasawa" = "Yasawa Fiji")
+  
+  # plot
+  plot <- fitted |>
+      ggplot(aes(x = FORMALED.mo, 
+                 y = post_mean, 
+                 group = indices,
+                 color = category))  + 
+      geom_line(alpha = 0.05) +
+      viridis::scale_color_viridis(discrete = TRUE, 
+                                   option = "D",
+                                   name = NULL,
+                                   direction = -1,
+                                   labels=c("Very rarely/never", 
+                                            "A few times per year", 
+                                            "A few times per month", 
+                                            "A few times per week", 
+                                            "Every day")) +
+    guides(colour = guide_legend(override.aes = list(alpha = 1))) + # controls the legend alpha separately from the geom_line() alpha
+    facet_wrap(~SITE, nrow = 3, ncol = 5, labeller = as_labeller(site_labels)) + 
+    scale_x_continuous(name="Years of formal education", breaks = c(0,10,20,30), labels = c("0","10","20","30")) +
+    scale_y_continuous(name="Probability of each response option", breaks=c(0, .5, 1)) + 
+    theme(legend.position = c(0.92, 0.1),
+          legend.text=element_text(size=7),
+          legend.key=element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_rect(fill = "white"),
+          legend.background = element_rect(fill="transparent"))
+  
+  set.seed(NULL)
+  
+  return(plot)
+}
+
+```
+
+```{r edu-think, dependson=c("m3mo","g-comp-trend"), fig.width=8, fig.height=4}
+g_comp_trend(m3mo, "BGTHINK") + ggtitle("How often do you think about [deity]?")
+
+```
+
+```{r edu-perfho, dependson=c("m3mo","g-comp-trend"), fig.width=8, fig.height=4}
+g_comp_trend(m3mo, "BGPERFHO") + ggtitle("How often do you perform activities or practices to talk to or appease [deity]?")
+
+```
+
+# Multilevel Regression with Poststratification
+
+Our main model and plotted predictions yield inferences for the sampled sites and participants with complete-cases for the included variables, when hypothetically manipulating years of formal education. While our dataset is both culturally and demographically diverse, it's not necessarily characteristic of any given population that we might be substantially interested in. Our results, then, potentially do not speak to any particular research question regarding any particular population.
+
+For illustrative purposes, in this final section, we show how to go about obtaining predictions for a non-sampled but well-defined population, using so-called *poststratification*. Poststratification involves re-weighting a model's predictions using weights obtained from external data that are more representative of the population of interest.
+
+For the sake of the illustration, we consider poststratifying model predictions to Denmark, since Danish (as well as many other European countries) census-level data are readily available for the relevant variables of age, gender, and educational level. We want to stress, however, that we do not take the obtained poststratified results as given but rather as a purely methodological exercise and practical demonstration.
+
+The general steps in poststratification is as follows (see blocked-out comments in code chunks for more detail): 
+
+1) We obtain external data that are more representative of a population of interest, such as from a census. For the present analysis, we used Eurostat, a datahub for European census data: https://ec.europa.eu/eurostat/databrowser/view/EDAT_LFS_9901__custom_5352473/default/table?lang=en.
+
+2) We then load the external data and streamline the external data to our sample data set in terms of data structure, variables labels, etc.
+
+```{r eurostat-prep}
+## Construct external dataset to use for poststratification:
+# https://ec.europa.eu/eurostat/databrowser/view/EDAT_LFS_9901__custom_5352473/default/table?lang=en
+
+# load external data for poststratification
+eurostat <- read.csv("eurostat2021.csv", sep = ";")
+
+psdf <- eurostat # copy df
+
+# streamline name of education column
+colnames(psdf)[which(names(psdf) == "ISCED11")] <- "FORMALED"
+
+# bin demographic variables
+psdf$SEX[psdf$SEX == "Females"] <- 0 # women
+psdf$SEX[psdf$SEX == "Males"] <- 1 # men
+
+psdf$AGE[psdf$AGE == "From 15 to 24 years"] <- 1 # 15-24
+psdf$AGE[psdf$AGE == "From 25 to 34 years"] <- 2 # 25-34
+psdf$AGE[psdf$AGE == "From 35 to 44 years"] <- 3 # 35-44
+psdf$AGE[psdf$AGE == "From 45 to 54 years"] <- 4 # 45-54
+psdf$AGE[psdf$AGE == "From 55 to 74 years"] <- 5 # 55-74
+
+psdf$FORMALED[psdf$FORMALED == "Less than primary, primary and lower secondary education (levels 0-2)"] <- 1 # primary to lower secondary
+psdf$FORMALED[psdf$FORMALED == "Upper secondary and post-secondary non-tertiary education (levels 3 and 4)"] <- 2 # # upper secondary and post-secondary non-tertiary education
+psdf$FORMALED[psdf$FORMALED == "Tertiary education (levels 5-8)"] <- 3 # tertiary education
+```
+
+```{r ps-prep}
+## Bin covariates according to Eurostat data
+d_mrp <- d
+
+# to achieve maximal coverage of age groups while retaining reasonable (i.e., not too large, not too small) bin sizes
+# consistent with externally available age ranges, we chose the following ranges:
+
+d_mrp$AGE[d_mrp$AGE <= 24] <- 1 # below 24 (external age bin: 15-24)
+d_mrp$AGE[d_mrp$AGE >= 25 & d_mrp$AGE <= 34] <- 2 # 25-34
+d_mrp$AGE[d_mrp$AGE >= 35 & d_mrp$AGE <= 44] <- 3 # 35-44
+d_mrp$AGE[d_mrp$AGE >= 45 & d_mrp$AGE <= 54] <- 4 # 45-54
+d_mrp$AGE[d_mrp$AGE >= 55 & d_mrp$AGE <= 74] <- 5 # 55-74
+d_mrp$AGE[d_mrp$AGE > 74] <- 6 # above 74; will not be used to poststratify due to lack of external data for this group
+
+d_mrp$AGE <- as.factor(d_mrp$AGE) # convert to factor
+
+d_mrp$FORMALED[d_mrp$FORMALED <= 10] <- 1 # ISCED 11: 0-2, primary to lower secondary, c. 10 years of education
+d_mrp$FORMALED[d_mrp$FORMALED >= 11 & d_mrp$FORMALED <= 16] <- 2 # ISCED 11: 3-4, upper secondary and post-secondary non-tertiary education, c. 5 years
+d_mrp$FORMALED[d_mrp$FORMALED >= 16.1] <- 3 # ISCED 11: 5-8, tertiary education
+
+d_mrp$FORMALED <- factor(d_mrp$FORMALED, ordered = TRUE) # convert to ordered factor
+
+```
+
+3) Next, we analyze our sample data in a multilevel cross-classification model that includes varying effects of the included demographic variables. Cross-classification address the fact that some cells (i.e., combination of covariates) might contain few observations and, through partial pooling, these cells are then informed by all other cells. As above, we plot simple prior vs. posterior predictive checks.
+
+```{r mrp, results="hide", dependson=c("envir", "ps-prep")}
+mrppriors <- set_prior("normal(0,1)", 
+                        class = "b", 
+                        resp = "BGTHINK") +
+              set_prior("normal(0,1)", 
+                        class = "b", 
+                        resp = "BGPERFHO") +
+              set_prior("normal(0,2.5)", 
+                        class = "Intercept", 
+                        resp = "BGTHINK") +
+              set_prior("normal(0,2.5)", 
+                        class = "Intercept", 
+                        resp = "BGPERFHO") +
+              set_prior("dirichlet(2)", 
+                        class = "simo", 
+                        resp = "BGTHINK", 
+                        coef = "moFORMALED1") +
+              set_prior("dirichlet(2)", 
+                        class = "simo", 
+                        resp = "BGPERFHO", 
+                        coef = "moFORMALED1") +
+              set_prior("exponential(1)", class = "sd", resp = "BGTHINK") +
+              set_prior("exponential(1)", class = "sd", resp = "BGPERFHO") +
+              set_prior("lkj_corr_cholesky(4)", class = "L")
+
+mrpformula <- mvbind(BGTHINK, BGPERFHO) ~ mo(FORMALED) + (mo(FORMALED) | SEX) + (mo(FORMALED) | AGE) + (mo(FORMALED) | SITE)
+
+mrpppc <- fit_brms_ppc(formula = mrpformula, priors = mrppriors, data = d_mrp)
+
+mrp <- fit_brms(formula = mrpformula, priors = mrppriors, data = d_mrp)
+
+```
+
+```{r mrpppc, dependson=c("envir", "mrp"), fig.width=8, fig.height=4}
+prior_vs_post(mrpppc, mrp)
+
+```
+
+4) Then, we obtain poststratification weights from the external data. For each combination of covariates (gender, age, level of education), the weights are simply the proportion given by the number of Danes with this combination to the total number of Danes in the external data. These weights are then used to re-weigh the model predictions.
+
+```{r ps-plot-prep}
+# credit to Monica Alexander:
+# https://www.monicaalexander.com/posts/2019-08-07-mrp/
+
+# get poststratification weights
+ps_prop <- psdf  |> 
+  group_by(FORMALED) |>
+  mutate(prop = Value/sum(Value)) |> 
+  ungroup()
+
+# postratification function
+poststratify <- function(model, newdata, resp) {
+  set.seed(2021)
+  
+  # get predictions for new data
+  ps_fitted <- add_epred_draws(
+                   object = model,
+                   newdata = newdata,
+                   resp = resp,
+                   ndraws = 300,
+                   
+                   # excluding site-specific variation
+                   re_formula = ~ (mo(FORMALED) | SEX) + (mo(FORMALED) | AGE), 
+                   allow_new_levels = TRUE) |>
+    
+  # re-weight model predictions using proportions from above
+  rename(estimate = .epred) |> 
+  mutate(estimate_prop = estimate*prop) |> 
+  group_by(FORMALED, .draw, .category) |>
+  summarise(estimate_sum = sum(estimate_prop)) |>
+    
+  # connect predictions for line plotting
+  group_by(.draw, .category) |>
+  mutate(indices = cur_group_id()) |>
+  ungroup() |>
+  rename(.epred = estimate_sum)
+  
+  set.seed(NULL)
+  
+  return(ps_fitted)
+  
+}
+
+ps_think <- poststratify(mrp, ps_prop, "BGTHINK")
+ps_perfho <- poststratify(mrp, ps_prop, "BGPERFHO")
+
+```
+
+5) Finally, the re-weighted predictions are plotted across available levels of formal education for each outcome. 
+
+```{r ps-plot, dependson = c("mrp","ps-plot-prep"), fig.width=9, fig.height=4}
+# plotting function
+ps_gcomp_trend <- function(fitted){
+  fitted |>
+    ggplot(aes(x = FORMALED, 
+               y = .epred, 
+               group = indices,
+               color = .category))  + 
+    geom_line(alpha = 0.05) +
+    viridis::scale_color_viridis(discrete = TRUE, 
+                                 option = "D",
+                                 name = NULL,
+                                 direction = -1,
+                                 labels=c("Very rarely/never", 
+                                          "A few times per year", 
+                                          "A few times per month", 
+                                          "A few times per week", 
+                                          "Every day")) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) + # controls the legend alpha separately from the geom_line() alpha
+  scale_x_discrete(name="Years of formal education (binned)", breaks = c(1,2,3), labels = c("0-10","11-16",">16"), 
+                   expand = c(0,0.1)) +
+  scale_y_continuous(name="Probability of each response option", breaks=c(0, .5, 1), limits = c(0,1)) + 
+  theme(strip.background = element_blank(),
+        strip.text.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.key=element_blank(),
+        panel.background = element_rect(fill = "white"))
+}
+
+# panel plotting 
+(ps_gcomp_trend(ps_think)) + 
+  theme(legend.position = "none") + 
+  labs(title = "Poststratified to Denmark", 
+       subtitle = "How often do you think about [deity]?") +
+    (ps_gcomp_trend(ps_perfho)) +
+      theme(axis.title.y = element_text(color = "white"),
+            axis.text.y = element_blank()) +
+      labs(title = "Poststratified to Denmark", 
+           subtitle = "How often do you perform activities or practices\n to talk to or appease [deity]?") +
+  plot_layout(ncol = 2)
+
+```
+
+Now, notice that since years of formal education did not exhibit a clear effect on religious commitment in our sample data, the poststratified predictions are not qualitatively different from our main results. Consider too that our sample data were generally very religiously committed. Since the model is trained on this dataset, according to the poststratified predictions but counter to fact, Danes also come across as very religiously committed. We therefore stress again that, in the present study context, the poststratification exercise is purely a methodological illustration.
+
+```{r save-envir, include=FALSE, cache=FALSE}
+save.image("notebook_fits.RData")
+
+```
+
+\newpage
+
+# R packages, versions, and dependencies
+
+```{r cite-package, echo = FALSE, results = 'asis', cache = FALSE}
+cite_packages(dependencies = TRUE, output = "paragraph")
+
+```
+
+\newpage
+
+# References
+
+<div id="refs"></div>
+
