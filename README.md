@@ -4,7 +4,13 @@ Repository for a Culture in Schooling study on causal inference:
 
 "Material secuirty and religiosity: A causal analysis"
 
-The `notebook` folder contains the analysis and plotting script (`notebook.qmd`), data files and bibliography file, as well as the rendered output.
+`ALLSITES_V3.7_tabdel.txt`: Main data file.
+
+`causalmodelsim.R`: Script for reproducing causal simulations.
+
+`descriptivedata.R`: Script for reproducing table of sample descriptives.
+
+The `notebook` folder contains the analysis and plotting script (`notebook.qmd`), supplementary data (`eurostat2021.csv`) and bibliography file (`grateful-refs.bib`), as well as the rendered output (`notebook.html`).
 
 The rendered supplementary materials -- including supplementary plots and sections as well as fully referenced list of `R` packages, their dependencies and version number -- is hosted here: https://tbendixen.github.io/causal-inference-schooling/notebook/notebook.html
 
