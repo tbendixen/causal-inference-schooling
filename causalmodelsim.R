@@ -4,6 +4,8 @@
 ### by Benjamin Grant Purzycki and Theiss Bendixen
 ###########################################
 
+# This section inspired by https://www.felixthoemmes.com/blog/the-front-door-criterion-in-linear-parametric-models/
+
 library(dagitty)
 
 mycol1 <- rgb(246, 246, 246, max = 255, alpha = 100, names = "white")
