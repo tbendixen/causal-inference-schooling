@@ -57,29 +57,28 @@ plot(dagitty('dag {
 bb="0,0,1,1"
 "Education (Amount)" [exposure,pos="0.226,0.637"]
 "Education (Type)" [latent,pos="0.206,0.471"]
-"Material Security" [adjusted,pos="0.363,0.297"]
+"Food Security" [adjusted,pos="0.363,0.297"]
 Age [adjusted,pos="0.492,0.507"]
 Children [adjusted,pos="0.220,0.297"]
 PRIME [pos="0.494,0.637"]
 Religiosity [outcome,pos="0.363,0.637"]
 Sex [adjusted,pos="0.495,0.385"]
-"Education (Amount)" -> "Material Security"
+"Education (Amount)" -> "Food Security"
 "Education (Amount)" -> Religiosity
 "Education (Type)" -> Religiosity
-Children -> "Material Security" 
-"Material Security" -> Religiosity
+Children -> "Food Security" 
+"Food Security" -> Religiosity
 Age -> "Education (Amount)"
-Age -> "Material Security"
+Age -> "Food Security"
 Age -> Children
 Age -> Religiosity
 Children -> Religiosity
 PRIME -> Religiosity
 Sex -> "Education (Amount)"
-Sex -> "Material Security"
+Sex -> "Food Security"
 Sex -> Religiosity
 }
-
-             '))  
+           ')) 
 
 plot(NA, xlab = NA, ylab = "", 
      xlim = c(0.3, 1.3), 
@@ -91,7 +90,7 @@ polygon(densop2, col = mycol3) # open2
 polygon(densop3, col = mycol4) # open3
 polygon(densco1, col = mycol5) # closed
 abline(v = 0.5, lty = 2)
-legend(1.1, 13, legend = c("~ Edu. (Amnt.)", "+ Sex", "+ Mat. Sec.", "+ Age + Kids",
+legend(1.1, 13, legend = c("~ Edu. (Amnt.)", "+ Sex", "+ Food Sec.", "+ Age + Kids",
                            "+ Edu (Type)"), 
        fill = c(mycol1, mycol2, mycol3, mycol4, mycol5), 
        cex = .8, horiz = F, bty = T, inset = c(0.03, 0.15)) 
