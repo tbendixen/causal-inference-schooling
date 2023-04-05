@@ -2,7 +2,7 @@
 
 Repository for a Culture in Schooling study on causal inference:
 
-"Material insecuirty and religiosity: A causal analysis"
+"Material insecurity and religiosity: A causal analysis"
 
 The rendered supplementary materials -- including supplementary plots and sections as well as fully referenced list of `R` packages, their dependencies and version number -- is hosted here: https://tbendixen.github.io/causal-inference-schooling/notebook/notebook.html
 
