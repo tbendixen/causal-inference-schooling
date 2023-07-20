@@ -40,7 +40,7 @@ This notebook fits and reports on the main and supplementary models for our anal
 
 We first discuss and demonstrate the impact on inference between accounting versus not accounting for group-level structures -- sometimes referred to as Simpson's "paradox".
 
-We then fit and compare two approaches to modeling years of formal education and age -- namely, via Gaussian processes and monotonic effects. Then, we fit our main analysis, as reported in the submitted manuscript and compare the marginal predictions to a model that poststratify predictions to a different, non-sampled population.
+We then fit and compare two approaches to modeling years of formal education and age -- namely, via Gaussian processes and monotonic effects. Then, we fit our main analysis, as reported in the submitted manuscript and compare the marginal predictions to a model that post-stratify predictions to a different, non-sampled population.
 
 Finally, we list and cite all `R` packages, their dependencies, and version number used for this project.
 
@@ -792,10 +792,18 @@ save.image("notebook_fits.RData")
 
 \newpage
 
+# Identifiability assumptions
+
+For our estimated effects to have valid causal interpretations, a set of identifiability assumptions need to be met.
+
+First, the statistical model is assumed to not suffer from model misspecification, measurement bias, or unmodelled confounding (i.e., *conditional exchangeability*). Second, it's assumed that the exposure and outcome of participants do not depend on other participants' exposures and outcomes (i.e., *stable unit treatment value assumption* or *no interference*). Third, it's assumed that the observed outcome under a given exposure for any given participant is equivalent to the potential outcome that would've been observed for that participant under that exposure (i.e., *counterfactual consistency*). Fourth, it's assumed that all counterfactually manipulated levels and combinations of exposures and covariates are possible for all participants (i.e., *positivity*). This latter assumption can be relaxed to the extent that we're willing to extrapolate the model's predictions to ranges and combinations of exposures and covariates outside the observed sample. All these assumptions, however, are difficult or even impossible to verify using empirical data alone.
+
+\newpage
+
 # R packages, versions, and dependencies
 
 ```{r cite-package, echo = FALSE, results = 'asis', cache = FALSE}
-cite_packages(dependencies = TRUE, output = "paragraph")
+grateful::cite_packages(dependencies = TRUE, output = "paragraph", out.dir = getwd())
 
 ```
 
