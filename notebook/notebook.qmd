@@ -7,15 +7,6 @@ format:
   html:
     number-sections: TRUE
     toc: TRUE
-  pdf:
-    number-sections: TRUE
-    toc: TRUE
-    keep-tex: TRUE
-    include-in-header: 
-       text: |
-         \usepackage{fvextra}
-         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
-         \DefineVerbatimEnvironment{OutputCode}{Verbatim}{breaklines,commandchars=\\\{\}}
 number-depth: 2
 editor: source
 bibliography: grateful-refs.bib
@@ -36,11 +27,16 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-This notebook fits and reports on the main and supplementary models for our analysis on religious commitment as predicted by food insecurity and educational attainment. 
+This notebook fits and reports on the main and supplementary models for our analysis on religious commitment as predicted by food insecurity and educational 
+attainment. 
 
 We first discuss and demonstrate the impact on inference between accounting versus not accounting for group-level structures -- sometimes referred to as Simpson's "paradox".
 
-We then fit and compare two approaches to modeling years of formal education and age -- namely, via Gaussian processes and monotonic effects. Then, we fit our main analysis, as reported in the submitted manuscript and compare the marginal predictions to a model that post-stratify predictions to a different, non-sampled population.
+Next, we discuss the causal simulation exercise mentioned in the main manuscript.
+
+We then fit and compare two approaches to modeling years of formal education and age -- namely, via Gaussian processes and monotonic effects. 
+
+Then, we fit our main analysis, as reported in the submitted manuscript and compare the marginal predictions to a model that post-stratify predictions to a different, non-sampled population. We also briefly discuss the key identifiability assumptions underlying our g-computation approach.
 
 Finally, we list and cite all `R` packages, their dependencies, and version number used for this project.
 
@@ -226,6 +222,93 @@ d_agg <- with(d, data.frame(
   plot_layout(ncol=2)
 
 ```
+
+# Simulation
+
+Recall our DAG from the main text. 
+
+```{r DAG, out.width = "50%", fig.align = 'center'}
+knitr::include_graphics("DAG-1.png")
+```
+
+To ensure that this model was resolvable, we simulated it, treating sex and education type as binary variables, each with a 50\% chance of having a value of 1. The remaining variables $\sim \text{Normal}(0, 1)$, including the error terms we added to each variable for some realistic noise. 
+For the sake of simplicity, we hard-coded each causal estimand at 0.5. Results are distributions of estimates from 1,000 
+iterations where a single run sampled from 1,000 individuals. As illustrated in the following figure, we recovered this value when we condition on sex, food security and age. And, as suggested by the causal graph, holding education type constant is inconsequential. 
+
+```{r DAGsim, fig.width=8, fig.height=4}
+# Simulation of DAG
+colorshex <- c("#c9b2c8", "#070808", "#6c90a1", "#55758c", "#FF0000") # Stoner Witch palette
+colorsrgb <- col2rgb(colorshex)
+
+mycol1 <- rgb(201, 178, 200, max = 255, alpha = 200, names = "Lily") 
+mycol2 <- rgb(7, 8, 8, max = 200, alpha = 200, names = "Woodsmoke")
+mycol3 <- rgb(108, 144, 161, max = 200, alpha = 200, names = "Gothic")
+mycol4 <- rgb(85, 117, 140, max = 200, alpha = 200, names = "Smalt Blue")
+mycol5 <- rgb(255, 0, 0, max = 300, alpha = 200, names = "red")
+
+fd <- function(n, beta) {
+  e_rel <- rnorm(n, 0, 1) # noise
+  e_edu <- rnorm(n, 0, 1)
+  e_mat <- rnorm(n, 0, 1)
+  e_qua <- rnorm(n, 0, 1)
+  e_sex <- rnorm(n, 0, 1)
+  e_age <- rnorm(n, 0, 1) 
+  e_kid <- rnorm(n, 0, 1)
+  SEX <- rbinom(n, 1, .5) # sex
+  XIA <- rbinom(n, 1, .5) # edu type
+  PRI <- rbinom(n, 1, .5) # prime
+  AGE <- rnorm(n, 0, 1) # age
+  EDU <- beta * SEX + beta * AGE + e_edu # edu
+  MAT <- beta * SEX * beta * EDU + beta * AGE + e_mat # food security
+  KID <- beta * MAT + beta * AGE + + beta * EDU + e_kid # children
+  REL <- beta * EDU + beta * XIA + beta * MAT + beta * SEX + beta * AGE + 
+    beta * PRI + beta * KID + e_rel # religiosity
+  df <- data.frame(SEX, XIA, PRI, AGE, EDU, MAT, REL)
+  open0 <- coef(lm(REL ~ EDU, dat = df))[2]
+  open1 <- coef(lm(REL ~ EDU + SEX, dat = df))[2]
+  open2 <- coef(lm(REL ~ EDU + SEX + MAT, dat = df))[2]
+  open3 <- coef(lm(REL ~ EDU + SEX + MAT + AGE + KID, dat = df))[2]
+  closed <- coef(lm(REL ~ EDU + SEX + MAT + AGE + + KID + XIA, dat = df))[2]
+  withprime <- coef(lm(REL ~ EDU + SEX + MAT + AGE + + KID + XIA + PRI, dat = df))[2]
+  return(c(open0, open1, open2, open3, closed, withprime))
+}
+
+sim1 <- data.frame(t(replicate(1000, fd(1000, .5))))
+names(sim1) <- c("open0", "open1", "open2", "open3", "controlled", "withprime")
+
+densop0 <- density(sim1$open0)
+densop1 <- density(sim1$open1)
+densop2 <- density(sim1$open2)
+densop3 <- density(sim1$open3)
+densco1 <- density(sim1$controlled)
+#denspr1 <- density(sim1$withprime)
+
+par(mar = c(3, 1, 1, 1))
+plot(NA, xlab = NA, ylab = "", 
+     xlim = c(0.3, 1.5), 
+     ylim = c(0, 13), 
+     cex.lab = 1.3, yaxt = 'n')
+polygon(densop0, col = mycol1) # open0
+polygon(densop1, col = mycol2) # open1
+polygon(densop2, col = mycol3) # open2
+polygon(densop3, col = mycol4) # open3
+polygon(densco1, col = mycol5) # closed
+#polygon(denspr1, col = mycol1) # with prime
+abline(v = 0.5, lty = 2)
+legend(0.6, 12, legend = c("~ Edu. (Amnt.)", "+ Sex", "+ Mat. Sec.", "+ Age + Kids",
+                           "+ Edu (Type)"), 
+       fill = c(mycol1, mycol2, mycol3, mycol4, mycol5), 
+       cex = .7, horiz = F, bty = T, inset = c(0.03, 0.15))
+```
+
+One important point about the data set is important to note in light of our causal model. Some participants 
+included were part of experiments in the proximity of a religious prime (e.g., participating near a Bible, 
+Buddhist charm, etc.). While these primes had little to no discernible effects on experiments, it might be 
+nevertheless construed as as an important variable that may have increased reported religiosity during the data 
+collection process. If we therefore updated the DAG above and included prime as a causal factor in religiosity,
+it would be inconsequential to condition on it because, like Education (Type), it poses no confounding influence on 
+education amount and religiosity (or any other variable). We therefore did not include it in our analyses. The
+supplementary code nevertheless includes these factors for further exploration.
 
 # Monotonic vs. Gaussian process
 
