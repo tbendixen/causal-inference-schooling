@@ -134,7 +134,7 @@ div.csl-indent {
   <ul class="collapse">
   <li><a href="#set-up-and-data-preparation" id="toc-set-up-and-data-preparation" class="nav-link" data-scroll-target="#set-up-and-data-preparation"><span class="toc-section-number">1.1</span>  Set-up and data preparation</a></li>
   </ul></li>
-  <li><a href="#simpsons-paradox" id="toc-simpsons-paradox" class="nav-link" data-scroll-target="#simpsons-paradox"><span class="toc-section-number">2</span>  Simpsons “paradox”</a></li>
+  <li><a href="#simpsons-paradox" id="toc-simpsons-paradox" class="nav-link" data-scroll-target="#simpsons-paradox"><span class="toc-section-number">2</span>  Simpson’s “paradox”</a></li>
   <li><a href="#simulation" id="toc-simulation" class="nav-link" data-scroll-target="#simulation"><span class="toc-section-number">3</span>  Simulation</a></li>
   <li><a href="#monotonic-vs.-gaussian-process" id="toc-monotonic-vs.-gaussian-process" class="nav-link" data-scroll-target="#monotonic-vs.-gaussian-process"><span class="toc-section-number">4</span>  Monotonic vs.&nbsp;Gaussian process</a>
   <ul class="collapse">
@@ -314,9 +314,9 @@ div.csl-indent {
 </section>
 </section>
 <section id="simpsons-paradox" class="level1" data-number="2">
-<h1 data-number="2"><span class="header-section-number">2</span> Simpsons “paradox”</h1>
+<h1 data-number="2"><span class="header-section-number">2</span> Simpson’s “paradox”</h1>
 <p>As reviewed in the main manuscript, some previous research analyzes group-level association between various sociodemographic factors and religious commitment and finds, for instance, that years of education negatively predicts religiosity. Here, using simple bivariate regressions, we show how analyzing group-mean aggregated can potentially lead us astray. This is sometimes referred to as Simpson’s paradox, although technically there’s no paradox. It’s simply a result of nested data structures.</p>
-<p>Specifically, in the following graphs, we replicate previous findings that, on a group-mean aggregate level, there’s a negative relationship between education and religiosity (left panel), but that this relationship disappears when taking into account the grouping structure in the data (namely, the field sites; right panel). One way to think of this phenomenon is to consider the field sites as proxies for unobserved, site-specific confounding factors that are (at least partly) mitigated, when allowing each site to have its own intercept and slope.</p>
+<p>Specifically, in the following graphs, we replicate previous findings that, on a group-mean aggregate level, there’s a negative relationship between education and religiosity (left panel), but that this relationship disappears when taking into account the grouping structure in the data (namely, the field sites; right panel). One way to think of this phenomenon is to consider the field sites as proxies for unobserved, site-specific confounding factors that are (at least partly) accounted for, when allowing each site to have its own intercept and slope.</p>
 <div class="cell" data-hash="notebook_cache/html/simps-think_603e58ee51a3ce1077640f7926aa8bd8">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>d_agg <span class="ot">&lt;-</span> <span class="fu">with</span>(d, <span class="fu">data.frame</span>(</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">SITE =</span> <span class="fu">unique</span>(d<span class="sc">$</span>SITE),</span>
@@ -390,7 +390,8 @@ div.csl-indent {
 </div>
 </div>
 </div>
-<p>To ensure that this model was resolvable, we simulated it, treating sex and education type as binary variables, each with a 50% chance of having a value of 1. The remaining variables <span class="math inline">\(\sim \text{Normal}(0, 1)\)</span>, including the error terms we added to each variable for some realistic noise. For the sake of simplicity, we hard-coded each causal estimand at 0.5. Results are distributions of estimates from 1,000 iterations where a single run sampled from 1,000 individuals. As illustrated in the following figure, we recovered this value when we condition on sex, food security and age. And, as suggested by the causal graph, holding education type constant is inconsequential.</p>
+<p>To ensure that this model was resolvable, we simulated it, treating sex and education type as binary variables, each with a 50% chance of having a value of 1. The remaining variables <span class="math inline">\(\sim \text{Normal}(0, 1)\)</span>, including the error terms we added to each variable for some realistic noise.</p>
+<p>For the sake of simplicity, we hard-coded each causal estimand at 0.5. Results are distributions of estimates from 1,000iterations where a single run sampled from 1,000 individuals. As illustrated in the following figure, we recovered this value when we condition on sex, food security and age. And, as suggested by the causal graph, holding education type constant is inconsequential.</p>
 <div class="cell" data-hash="notebook_cache/html/DAGsim_b460f5913193a1d3f7123a40c6962315">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulation of DAG</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>colorshex <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"#c9b2c8"</span>, <span class="st">"#070808"</span>, <span class="st">"#6c90a1"</span>, <span class="st">"#55758c"</span>, <span class="st">"#FF0000"</span>) <span class="co"># Stoner Witch palette</span></span>

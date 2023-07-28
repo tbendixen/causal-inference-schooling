@@ -160,11 +160,11 @@ pvp <- (pp_check(prior_model,
 
 ```
 
-# Simpsons "paradox"
+# Simpson's "paradox"
 
 As reviewed in the main manuscript, some previous research analyzes group-level association between various sociodemographic factors and religious commitment and finds, for instance, that years of education negatively predicts religiosity. Here, using simple bivariate regressions, we show how analyzing group-mean aggregated can potentially lead us astray. This is sometimes referred to as Simpson's paradox, although technically there's no paradox. It's simply a result of nested data structures. 
 
-Specifically, in the following graphs, we replicate previous findings that, on a group-mean aggregate level, there's a negative relationship between education and religiosity (left panel), but that this relationship disappears when taking into account the grouping structure in the data (namely, the field sites; right panel). One way to think of this phenomenon is to consider the field sites as proxies for unobserved, site-specific confounding factors that are (at least partly) mitigated, when allowing each site to have its own intercept and slope.
+Specifically, in the following graphs, we replicate previous findings that, on a group-mean aggregate level, there's a negative relationship between education and religiosity (left panel), but that this relationship disappears when taking into account the grouping structure in the data (namely, the field sites; right panel). One way to think of this phenomenon is to consider the field sites as proxies for unobserved, site-specific confounding factors that are (at least partly) accounted for, when allowing each site to have its own intercept and slope.
 
 ```{r simps-think, dependson="envir", fig.width=8, fig.height=4}
 d_agg <- with(d, data.frame(
@@ -231,9 +231,9 @@ Recall our DAG from the main text.
 knitr::include_graphics("DAG-1.png")
 ```
 
-To ensure that this model was resolvable, we simulated it, treating sex and education type as binary variables, each with a 50\% chance of having a value of 1. The remaining variables $\sim \text{Normal}(0, 1)$, including the error terms we added to each variable for some realistic noise. 
-For the sake of simplicity, we hard-coded each causal estimand at 0.5. Results are distributions of estimates from 1,000 
-iterations where a single run sampled from 1,000 individuals. As illustrated in the following figure, we recovered this value when we condition on sex, food security and age. And, as suggested by the causal graph, holding education type constant is inconsequential. 
+To ensure that this model was resolvable, we simulated it, treating sex and education type as binary variables, each with a 50\% chance of having a value of 1. The remaining variables $\sim \text{Normal}(0, 1)$, including the error terms we added to each variable for some realistic noise.
+
+For the sake of simplicity, we hard-coded each causal estimand at 0.5. Results are distributions of estimates from 1,000iterations where a single run sampled from 1,000 individuals. As illustrated in the following figure, we recovered this value when we condition on sex, food security and age. And, as suggested by the causal graph, holding education type constant is inconsequential. 
 
 ```{r DAGsim, fig.width=8, fig.height=4}
 # Simulation of DAG
